@@ -15,7 +15,7 @@ from torch.autograd import Variable
 
 from utils import load_data, accuracy
 from models import GAT, SpGAT
-
+# DATA
 # Training settings
 parser = argparse.ArgumentParser()
 parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables CUDA training.')
