@@ -13,8 +13,12 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
-from utils import load_data, accuracy
+from utils import load_data, accuracy, print_class_acc, print_class_acc_test
 from models import GAT, SpGAT
+import math
+
+import dgl
+from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset, CoraFullDataset
 # DATA
 # Training settings
 parser = argparse.ArgumentParser()
@@ -40,19 +44,51 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
-# Load data
-adj, features, labels, idx_train, idx_val, idx_test = load_data()
+if(torch.cuda.is_available()):
+    gpu=0
+    device='cuda:{}'.format(gpu)
+else:
+  device='cpu'    
+
+#Loading the dataset
+dataset = CiteseerGraphDataset()
+graph = dataset[0]   
+graph = dgl.add_self_loop(graph)
+print(graph)
+adj=graph.adj()
+print(adj)
+adj = torch.FloatTensor(np.array(adj.to_dense()))
+print(adj)
+print(adj.shape)
+n_classes = dataset.num_classes
+labels = graph.ndata.pop('label').to(device).long()
+feats = graph.ndata.pop('feat').to(device)
+n_features = feats.shape[-1]
+features=feats
+print(n_features)
+
+#Getting train test and val data
+train_mask = graph.ndata.pop('train_mask')
+val_mask = graph.ndata.pop('val_mask')
+test_mask = graph.ndata.pop('test_mask')
+
+idx_train = torch.nonzero(train_mask, as_tuple=False).squeeze().to(device)
+idx_val = torch.nonzero(val_mask, as_tuple=False).squeeze().to(device)
+idx_test = torch.nonzero(test_mask, as_tuple=False).squeeze().to(device)   
+
+# # Load data
+# adj, features, labels, idx_train, idx_val, idx_test = load_data()
 
 # Model and optimizer
 if args.sparse:
-    model = SpGAT(nfeat=features.shape[1], 
+    model = SpGAT(nfeat=n_features, 
                 nhid=args.hidden, 
                 nclass=int(labels.max()) + 1, 
                 dropout=args.dropout, 
                 nheads=args.nb_heads, 
                 alpha=args.alpha)
 else:
-    model = GAT(nfeat=features.shape[1], 
+    model = GAT(nfeat=n_features, 
                 nhid=args.hidden, 
                 nclass=int(labels.max()) + 1, 
                 dropout=args.dropout, 
@@ -79,7 +115,12 @@ def train(epoch):
     model.train()
     optimizer.zero_grad()
     output = model(features, adj)
-    loss_train = F.nll_loss(output[idx_train], labels[idx_train])
+    weight = features.new((labels.max().item()+1)).fill_(1)
+    for i in range(6):
+        c_idx = (labels==i).nonzero()[:,-1].tolist()
+        weight[i]=1/math.sqrt(len(c_idx))
+
+    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight)  
     acc_train = accuracy(output[idx_train], labels[idx_train])
     loss_train.backward()
     optimizer.step()
@@ -90,8 +131,9 @@ def train(epoch):
         model.eval()
         output = model(features, adj)
 
-    loss_val = F.nll_loss(output[idx_val], labels[idx_val])
+    loss_val = F.cross_entropy(output[idx_val], labels[idx_val],weight=weight)  
     acc_val = accuracy(output[idx_val], labels[idx_val])
+    f1=print_class_acc(output[idx_val], labels[idx_val], 0)
     print('Epoch: {:04d}'.format(epoch+1),
           'loss_train: {:.4f}'.format(loss_train.data.item()),
           'acc_train: {:.4f}'.format(acc_train.data.item()),
@@ -105,8 +147,9 @@ def train(epoch):
 def compute_test():
     model.eval()
     output = model(features, adj)
-    loss_test = F.nll_loss(output[idx_test], labels[idx_test])
+    loss_test = F.cross_entropy(output[idx_test], labels[idx_test])  
     acc_test = accuracy(output[idx_test], labels[idx_test])
+    f1=print_class_acc_test(output[idx_test], labels[idx_test], 0, pre='test')
     print("Test set results:",
           "loss= {:.4f}".format(loss_test.data.item()),
           "accuracy= {:.4f}".format(acc_test.data.item()))
