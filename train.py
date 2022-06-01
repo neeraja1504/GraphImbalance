@@ -19,6 +19,10 @@ import math
 
 import dgl
 from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset, CoraFullDataset
+
+import wandb
+
+wandb.init(project="GAT", entity="neerajak")
 # DATA
 # Training settings
 parser = argparse.ArgumentParser()
@@ -34,6 +38,12 @@ parser.add_argument('--nb_heads', type=int, default=8, help='Number of head atte
 parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
 parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
 parser.add_argument('--patience', type=int, default=100, help='Patience')
+
+wandb.config = {
+  "learning_rate": 0.005,
+  "epochs": 300,
+  "batch_size": 1
+}
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -71,14 +81,41 @@ print(n_features)
 train_mask = graph.ndata.pop('train_mask')
 val_mask = graph.ndata.pop('val_mask')
 test_mask = graph.ndata.pop('test_mask')
+print("Train_mask",train_mask)
 
 idx_train = torch.nonzero(train_mask, as_tuple=False).squeeze().to(device)
 idx_val = torch.nonzero(val_mask, as_tuple=False).squeeze().to(device)
-idx_test = torch.nonzero(test_mask, as_tuple=False).squeeze().to(device)   
+idx_test = torch.nonzero(test_mask, as_tuple=False).squeeze().to(device)
+
+# idx_train = range(140)
+# idx_val = range(200, 500)
+# idx_test = range(500, 1500)
+
+# idx_train = torch.LongTensor(idx_train)
+# idx_val = torch.LongTensor(idx_val)
+# idx_test = torch.LongTensor(idx_test)
+
 
 # # Load data
 # adj, features, labels, idx_train, idx_val, idx_test = load_data()
+# n_features=features.shape[-1]
 
+majority=[]
+minority=[]
+for i in range(len(idx_train)):
+  if(labels[idx_train[i]]==0):
+    minority.append(idx_train[i])
+    
+  if(labels[idx_train[i]]==5):
+    minority.append(idx_train[i])
+  #   print(labels[idx_train[i]])
+    # majority_id.append(i)
+  else:
+    majority.append(idx_train[i]) 
+print("length")    
+print(len(idx_train))
+print(len(idx_val))
+print(len(idx_test))
 # Model and optimizer
 if args.sparse:
     model = SpGAT(nfeat=n_features, 
@@ -116,11 +153,15 @@ def train(epoch):
     optimizer.zero_grad()
     output = model(features, adj)
     weight = features.new((labels.max().item()+1)).fill_(1)
-    for i in range(6):
+    for i in range(n_classes):
         c_idx = (labels==i).nonzero()[:,-1].tolist()
         weight[i]=1/math.sqrt(len(c_idx))
+    reg=0
+    for i in minority:
+      sub=adj[i] - model.attentions[1].weight[i]
+      reg=reg+torch.linalg.norm(sub) 
 
-    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight)  
+    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight)
     acc_train = accuracy(output[idx_train], labels[idx_train])
     loss_train.backward()
     optimizer.step()
@@ -134,25 +175,42 @@ def train(epoch):
     loss_val = F.cross_entropy(output[idx_val], labels[idx_val],weight=weight)  
     acc_val = accuracy(output[idx_val], labels[idx_val])
     f1=print_class_acc(output[idx_val], labels[idx_val], 0)
+    f2=print_class_acc(output[idx_train], labels[idx_train], 0)
     print('Epoch: {:04d}'.format(epoch+1),
           'loss_train: {:.4f}'.format(loss_train.data.item()),
           'acc_train: {:.4f}'.format(acc_train.data.item()),
           'loss_val: {:.4f}'.format(loss_val.data.item()),
           'acc_val: {:.4f}'.format(acc_val.data.item()),
           'time: {:.4f}s'.format(time.time() - t))
+    metrics= {"loss_train": loss_train.data.item(),
+    "loss_val": loss_val.data.item(),
+    "acc_train": acc_train.data.item(),
+    "acc_val":acc_val.data.item(),
+    "val_f1":f1,
+    "train_f1":f2 }          
+    wandb.log(metrics)
 
     return loss_val.data.item()
 
 
-def compute_test():
+def compute_test(epoch):
     model.eval()
     output = model(features, adj)
-    loss_test = F.cross_entropy(output[idx_test], labels[idx_test])  
+    weight = features.new((labels.max().item()+1)).fill_(1)
+    for i in range(n_classes):
+        c_idx = (labels==i).nonzero()[:,-1].tolist()
+        weight[i]=1/math.sqrt(len(c_idx))
+    loss_test = F.cross_entropy(output[idx_test], labels[idx_test],weight=weight)  
     acc_test = accuracy(output[idx_test], labels[idx_test])
     f1=print_class_acc_test(output[idx_test], labels[idx_test], 0, pre='test')
     print("Test set results:",
           "loss= {:.4f}".format(loss_test.data.item()),
           "accuracy= {:.4f}".format(acc_test.data.item()))
+    # test_metrics={"loss_test": loss_test.data.item(),
+    # "acc_test": acc_test.data.item(),
+    # "test_f1":f1}
+    # wandb.log(test_metrics)
+             
 
 # Train model
 t_total = time.time()
@@ -162,6 +220,7 @@ best = args.epochs + 1
 best_epoch = 0
 for epoch in range(args.epochs):
     loss_values.append(train(epoch))
+    
 
     torch.save(model.state_dict(), '{}.pkl'.format(epoch))
     if loss_values[-1] < best:
@@ -195,3 +254,34 @@ model.load_state_dict(torch.load('{}.pkl'.format(best_epoch)))
 
 # Testing
 compute_test()
+
+
+
+
+ 
+# for i in minority:
+#   list1=[]
+#   list2=[]
+#   list3=[]
+#   print("Node id and label",i,labels[i])
+#   for j in range(3327):
+#     if(model.attentions[1].weight[i][j]>0):
+#       list1.append(j)
+#       list2.append((model.attentions[1].weight[i][j]))
+#       list3.append((labels[j]))  
+#   print(list1)
+#   print(list3)
+#   print(list2) 
+    
+
+
+
+
+
+   
+   
+
+      
+
+       
+       

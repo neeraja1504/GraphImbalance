@@ -31,6 +31,7 @@ class GraphAttentionLayer(nn.Module):
         attention = torch.where(adj > 0, e, zero_vec)
         attention = F.softmax(attention, dim=1)
         attention = F.dropout(attention, self.dropout, training=self.training)
+        self.weight=attention
         h_prime = torch.matmul(attention, Wh)
 
         if self.concat:
@@ -46,8 +47,8 @@ class GraphAttentionLayer(nn.Module):
         Wh1 = torch.matmul(Wh, self.a[:self.out_features, :])
         Wh2 = torch.matmul(Wh, self.a[self.out_features:, :])
         # broadcast add
-        # e = Wh1 + Wh2.T
-        e = Wh1*Wh2.T
+        e = Wh1 + Wh2.T
+        # e = Wh1*Wh2.T
         # e = torch.cat((Wh1,Wh2))
         # print(e.shape)
         return self.leakyrelu(e)
