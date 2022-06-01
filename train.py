@@ -14,7 +14,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 
 from utils import load_data, accuracy, print_class_acc, print_class_acc_test
-from models import GAT, SpGAT
+from models import GAT, SpGAT, GCN
 import math
 
 import dgl
@@ -38,6 +38,7 @@ parser.add_argument('--nb_heads', type=int, default=8, help='Number of head atte
 parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
 parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
 parser.add_argument('--patience', type=int, default=100, help='Patience')
+parser.add_argument('--GCN', action='store_true', default=False, help='GCN neural network')
 
 wandb.config = {
   "learning_rate": 0.005,
@@ -124,6 +125,13 @@ if args.sparse:
                 dropout=args.dropout, 
                 nheads=args.nb_heads, 
                 alpha=args.alpha)
+if args.GCN:
+
+  model = GCN(nfeat=n_features,
+  nhid=args.hidden,
+  nclass=int(labels.max()) + 1, 
+  dropout=args.dropout)
+                
 else:
     model = GAT(nfeat=n_features, 
                 nhid=args.hidden, 
@@ -156,12 +164,18 @@ def train(epoch):
     for i in range(n_classes):
         c_idx = (labels==i).nonzero()[:,-1].tolist()
         weight[i]=1/math.sqrt(len(c_idx))
-    reg=0
-    for i in minority:
-      sub=adj[i] - model.attentions[1].weight[i]
-      reg=reg+torch.linalg.norm(sub) 
+    # reg=0
+    # for i in minority:
+    #   sub=adj[i] - model.attentions[1].weight[i]
+    #   reg=reg+torch.linalg.norm(sub) 
 
-    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight)
+    alpha=1
+    gamma=2
+    ce_loss_train= F.cross_entropy(output[idx_train], labels[idx_train], weight=weight,reduction='mean') 
+    pt = torch.exp(-ce_loss_train)
+    loss_train = ((alpha * (1-pt)**gamma * ce_loss_train).mean()) 
+
+    # loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight)
     acc_train = accuracy(output[idx_train], labels[idx_train])
     loss_train.backward()
     optimizer.step()
@@ -171,8 +185,8 @@ def train(epoch):
         # deactivates dropout during validation run.
         model.eval()
         output = model(features, adj)
-
-    loss_val = F.cross_entropy(output[idx_val], labels[idx_val],weight=weight)  
+    loss_val= F.cross_entropy(output[idx_val], labels[idx_val], weight=weight,reduction='mean') 
+    # loss_val = ((alpha * (1-pt)**gamma * ce_loss_val).mean())  
     acc_val = accuracy(output[idx_val], labels[idx_val])
     f1=print_class_acc(output[idx_val], labels[idx_val], 0)
     f2=print_class_acc(output[idx_train], labels[idx_train], 0)
@@ -193,7 +207,7 @@ def train(epoch):
     return loss_val.data.item()
 
 
-def compute_test(epoch):
+def compute_test():
     model.eval()
     output = model(features, adj)
     weight = features.new((labels.max().item()+1)).fill_(1)
