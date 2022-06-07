@@ -165,9 +165,23 @@ def train(epoch):
         c_idx = (labels==i).nonzero()[:,-1].tolist()
         weight[i]=1/math.sqrt(len(c_idx))
     reg=0
-    for i in minority:
-      sub=adj[i] - model.attentions[1].weight[i]
-      reg=reg+torch.linalg.norm(sub) 
+    # for i in minority:
+      
+    #   sub=adj[i] - model.attentions[1].weight[i]
+      
+      
+    #   reg=reg+torch.linalg.norm(sub) 
+    # print(reg)  
+    # t=torch.tensor(adj[minority],dtype=torch.long)
+    # sub=F.cross_entropy(model.attentions[1].weight[minority],t)
+    # print("Sub is",sub)
+
+    kl_loss = nn.KLDivLoss(reduction="batchmean")
+    input = F.log_softmax((model.attentions[1].weight[minority]),dim=-1)
+    target = F.softmax(adj[minority],dim=-1)
+    reg = kl_loss(input, target)
+    print(reg)
+    # print(model.attentions[1].weight[minority])
 
     # alpha=1
     # gamma=2
@@ -175,8 +189,9 @@ def train(epoch):
     # pt = torch.exp(-ce_loss_train)
     # loss_train = ((alpha * (1-pt)**gamma * ce_loss_train).mean()) 
 
-    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight) + 0.5*reg
+    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight) + 0.3*reg
     acc_train = accuracy(output[idx_train], labels[idx_train])
+    
     loss_train.backward()
     optimizer.step()
 
@@ -273,24 +288,24 @@ mainlist=[]
 
 
  
-for i in minority:
-  list1=[]
-  list2=[]
-  list3=[]
-  # print("Node id and label",i,labels[i])
-  for j in range(3327):
-    if(model.attentions[1].weight[i][j]>0):
-      list1.append(j)
-      list2.append((model.attentions[1].weight[i][j]))
-      list3.append((labels[j]))  
-  # print(list1)
-  # print(list3)
-  # print(list2) 
-      mainlist.append(list2)
+# for i in minority:
+#   list1=[]
+#   list2=[]
+#   list3=[]
+#   # print("Node id and label",i,labels[i])
+#   for j in range(3327):
+#     if(model.attentions[1].weight[i][j]>0):
+#       list1.append(j)
+#       list2.append((model.attentions[1].weight[i][j]))
+#       list3.append((labels[j]))  
+#   # print(list1)
+#   # print(list3)
+#   # print(list2) 
+#       mainlist.append(list2)
 
-with open("/content/drive/MyDrive/Neeraja/lambda=0.5.txt", 'w') as output:
-       for row in mainlist:
-          output.write(str(row) + '\n')
+# with open("/content/drive/MyDrive/Neeraja/lambda=0.5.txt", 'w') as output:
+#        for row in mainlist:
+#           output.write(str(row) + '\n')
 
 
 
