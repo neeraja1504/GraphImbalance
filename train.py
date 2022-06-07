@@ -84,17 +84,17 @@ val_mask = graph.ndata.pop('val_mask')
 test_mask = graph.ndata.pop('test_mask')
 print("Train_mask",train_mask)
 
-idx_train = torch.nonzero(train_mask, as_tuple=False).squeeze().to(device)
-idx_val = torch.nonzero(val_mask, as_tuple=False).squeeze().to(device)
-idx_test = torch.nonzero(test_mask, as_tuple=False).squeeze().to(device)
+# idx_train = torch.nonzero(train_mask, as_tuple=False).squeeze().to(device)
+# idx_val = torch.nonzero(val_mask, as_tuple=False).squeeze().to(device)
+# idx_test = torch.nonzero(test_mask, as_tuple=False).squeeze().to(device)
 
-# idx_train = range(140)
-# idx_val = range(200, 500)
-# idx_test = range(500, 1500)
+idx_train = range(3327)
+idx_val = range(3327)
+idx_test = range(3327)
 
-# idx_train = torch.LongTensor(idx_train)
-# idx_val = torch.LongTensor(idx_val)
-# idx_test = torch.LongTensor(idx_test)
+idx_train = torch.LongTensor(idx_train)
+idx_val = torch.LongTensor(idx_val)
+idx_test = torch.LongTensor(idx_test)
 
 
 # # Load data
@@ -164,18 +164,18 @@ def train(epoch):
     for i in range(n_classes):
         c_idx = (labels==i).nonzero()[:,-1].tolist()
         weight[i]=1/math.sqrt(len(c_idx))
-    # reg=0
-    # for i in minority:
-    #   sub=adj[i] - model.attentions[1].weight[i]
-    #   reg=reg+torch.linalg.norm(sub) 
+    reg=0
+    for i in minority:
+      sub=adj[i] - model.attentions[1].weight[i]
+      reg=reg+torch.linalg.norm(sub) 
 
-    alpha=1
-    gamma=2
-    ce_loss_train= F.cross_entropy(output[idx_train], labels[idx_train], weight=weight,reduction='mean') 
-    pt = torch.exp(-ce_loss_train)
-    loss_train = ((alpha * (1-pt)**gamma * ce_loss_train).mean()) 
+    # alpha=1
+    # gamma=2
+    # ce_loss_train= F.cross_entropy(output[idx_train], labels[idx_train], weight=weight,reduction='mean') 
+    # pt = torch.exp(-ce_loss_train)
+    # loss_train = ((alpha * (1-pt)**gamma * ce_loss_train).mean()) 
 
-    # loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight)
+    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight) + 0.5*reg
     acc_train = accuracy(output[idx_train], labels[idx_train])
     loss_train.backward()
     optimizer.step()
@@ -269,23 +269,34 @@ model.load_state_dict(torch.load('{}.pkl'.format(best_epoch)))
 # Testing
 compute_test()
 
-
+mainlist=[]
 
 
  
-# for i in minority:
-#   list1=[]
-#   list2=[]
-#   list3=[]
-#   print("Node id and label",i,labels[i])
-#   for j in range(3327):
-#     if(model.attentions[1].weight[i][j]>0):
-#       list1.append(j)
-#       list2.append((model.attentions[1].weight[i][j]))
-#       list3.append((labels[j]))  
-#   print(list1)
-#   print(list3)
-#   print(list2) 
+for i in minority:
+  list1=[]
+  list2=[]
+  list3=[]
+  # print("Node id and label",i,labels[i])
+  for j in range(3327):
+    if(model.attentions[1].weight[i][j]>0):
+      list1.append(j)
+      list2.append((model.attentions[1].weight[i][j]))
+      list3.append((labels[j]))  
+  # print(list1)
+  # print(list3)
+  # print(list2) 
+      mainlist.append(list2)
+
+with open("/content/drive/MyDrive/Neeraja/lambda=0.5.txt", 'w') as output:
+       for row in mainlist:
+          output.write(str(row) + '\n')
+
+
+
+
+
+
     
 
 
