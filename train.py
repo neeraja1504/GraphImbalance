@@ -96,10 +96,59 @@ idx_train = torch.LongTensor(idx_train)
 idx_val = torch.LongTensor(idx_val)
 idx_test = torch.LongTensor(idx_test)
 
+# c_train_num = []
+# class_sample_num=20
+# for i in range(labels.max().item() + 1):
+#     if i==0 or i==5: #only imbalance the last classes
+#         c_train_num.append(int(class_sample_num*0.5))
 
-# # Load data
+#     else:
+#         c_train_num.append(class_sample_num)
+# print("Ctrain num",c_train_num)
+# def split_arti(labels, c_train_num):
+#     #labels: n-dim Longtensor, each element in [0,...,m-1].
+#     #cora: m=7
+#     num_classes = len(set(labels.tolist()))
+#     c_idxs = [] # class-wise index
+#     train_idx = []
+#     val_idx = []
+#     test_idx = []
+#     c_num_mat = np.zeros((num_classes,3)).astype(int)
+#     c_num_mat[:,1] = 25
+#     c_num_mat[:,2] = 55
+
+#     for i in range(num_classes):
+#         c_idx = (labels==i).nonzero()[:,-1].tolist()
+#         print('{:d}-th class sample number: {:d}'.format(i,len(c_idx)))
+#         random.shuffle(c_idx)
+#         c_idxs.append(c_idx)
+
+#         train_idx = train_idx + c_idx[:c_train_num[i]]
+#         c_num_mat[i,0] = c_train_num[i]
+
+       
+#         # val_idx = val_idx + c_idx[c_train_num[i]:c_train_num[i]+25]
+#         # test_idx = test_idx + c_idx[c_train_num[i]+25:c_train_num[i]+80]
+#         val_idx= range(200,500)
+#         test_idx=range(500,1500)
+
+#     random.shuffle(train_idx)
+
+#     #ipdb.set_trace()
+
+#     train_idx = torch.LongTensor(train_idx)
+#     val_idx = torch.LongTensor(val_idx)
+#     test_idx = torch.LongTensor(test_idx)
+#     #c_num_mat = torch.LongTensor(c_num_mat)
+
+
+#     return train_idx, val_idx, test_idx, c_num_mat  
+
+# idx_train, idx_val, idx_test, c_num_mat=split_arti(labels,c_train_num)
+# # # Load data
 # adj, features, labels, idx_train, idx_val, idx_test = load_data()
 # n_features=features.shape[-1]
+
 
 majority=[]
 minority=[]
@@ -117,6 +166,7 @@ print("length")
 print(len(idx_train))
 print(len(idx_val))
 print(len(idx_test))
+print(minority)
 # Model and optimizer
 if args.sparse:
     model = SpGAT(nfeat=n_features, 
@@ -176,12 +226,25 @@ def train(epoch):
     # sub=F.cross_entropy(model.attentions[1].weight[minority],t)
     # print("Sub is",sub)
 
-    kl_loss = nn.KLDivLoss(reduction="batchmean")
-    input = F.log_softmax((model.attentions[1].weight[minority]),dim=-1)
-    target = F.softmax(adj[minority],dim=-1)
-    reg = kl_loss(input, target)
+    # kl_loss = nn.KLDivLoss(reduction="batchmean")
+    # input = F.log_softmax((model.attentions[1].weight[minority]),dim=-1)
+    # target = F.softmax(adj[minority],dim=-1)
+    # reg = kl_loss(input, target)
+    # print(reg)
+    # print(model.attentions[1].weight[minority].shape)
+    reg=0
+    for i in minority:
+      kl_loss = nn.KLDivLoss(reduction="batchmean")
+      input = F.log_softmax(model.attentions[1].weight[i])
+      target = adj[i]
+      sub = kl_loss(input, target)
+      reg=reg+sub
+    reg=reg/len(minority)
+    print(reg)  
+
+    
     print(reg)
-    # print(model.attentions[1].weight[minority])
+
 
     # alpha=1
     # gamma=2
@@ -189,7 +252,7 @@ def train(epoch):
     # pt = torch.exp(-ce_loss_train)
     # loss_train = ((alpha * (1-pt)**gamma * ce_loss_train).mean()) 
 
-    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight) + 0.3*reg
+    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight)+ 0.8*reg
     acc_train = accuracy(output[idx_train], labels[idx_train])
     
     loss_train.backward()
@@ -285,27 +348,34 @@ model.load_state_dict(torch.load('{}.pkl'.format(best_epoch)))
 compute_test()
 
 mainlist=[]
-
+labell=[]
 
  
-# for i in minority:
-#   list1=[]
-#   list2=[]
-#   list3=[]
-#   # print("Node id and label",i,labels[i])
-#   for j in range(3327):
-#     if(model.attentions[1].weight[i][j]>0):
-#       list1.append(j)
-#       list2.append((model.attentions[1].weight[i][j]))
-#       list3.append((labels[j]))  
-#   # print(list1)
-#   # print(list3)
-#   # print(list2) 
-#       mainlist.append(list2)
+for i in minority:
+  list1=[]
+  list2=[]
+  list3=[]
+  # print("Node id and label",i,labels[i])
+  for j in range(3327):
+    if(model.attentions[1].weight[i][j]>0):
+      list1.append(j)
+      list2.append((model.attentions[1].weight[i][j]))
+      list3.append((labels[j]))  
+  # print(list1)
+  # print(list3)
+  # print(list2) 
+      mainlist.append(list2)
+      labell.append(list3)
 
 # with open("/content/drive/MyDrive/Neeraja/lambda=0.5.txt", 'w') as output:
 #        for row in mainlist:
 #           output.write(str(row) + '\n')
+
+
+with open("/content/drive/MyDrive/Neeraja/label.txt", 'w') as output:
+       for row in labell:
+          output.write(str(row) + '\n') 
+
 
 
 
