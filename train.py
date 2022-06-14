@@ -232,14 +232,15 @@ def train(epoch):
     # reg = kl_loss(input, target)
     # print(reg)
     # print(model.attentions[1].weight[minority].shape)
-    # reg=0
-    # for i in minority:
-    #   kl_loss = nn.KLDivLoss(reduction="batchmean")
-    #   input = F.log_softmax(model.attentions[1].weight[i])
-    #   target = adj[i]
-    #   sub = kl_loss(input, target)
-    #   reg=reg+sub
-    # reg=reg/len(minority)
+    reg=0
+    for i in minority:
+      kl_loss = nn.KLDivLoss(reduction="batchmean")
+      input = F.log_softmax(model.attentions[1].weight[i],dim=-1)
+      target = adj[i]
+      sub = kl_loss(input, target)
+      reg=reg+sub
+      reg=reg/len(minority)
+    
     
 
     
@@ -251,8 +252,23 @@ def train(epoch):
     # ce_loss_train= F.cross_entropy(output[idx_train], labels[idx_train], weight=weight,reduction='mean') 
     # pt = torch.exp(-ce_loss_train)
     # loss_train = ((alpha * (1-pt)**gamma * ce_loss_train).mean()) 
+    # one_hot = torch.nn.functional.one_hot(labels[idx_train])
+    labels_onehot = F.one_hot(labels[idx_train], num_classes=n_classes).to(device=output.device,
+                                                                           dtype=output.dtype)
+    ce_loss= F.cross_entropy(output[idx_train], labels[idx_train], weight=weight,reduction='mean')
+    # pt=torch.sum((one_hot.type(torch.float)*(torch.nn.Softmax()(output[idx_train].type(torch.float)))),dim=-1)
+    print("inside poly loss")
+    pt = torch.sum(labels_onehot * F.softmax(output[idx_train], dim=-1), dim=-1)
+    print(ce_loss)
+   
+    
+    # print(one_hot.shape)
+    # print((output[idx_train].shape))
+    # print(torch.nn.Softmax()(output[idx_train]).shape)
+    loss_train= ce_loss + (0.5)*(1-pt)
+    loss_train=loss_train.mean()
 
-    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight)
+    # loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight) + 20*reg
     # print("Reg is",reg)
     # print("Train accuracy is",F.cross_entropy(output[idx_train], labels[idx_train],weight=weight))
     acc_train = accuracy(output[idx_train], labels[idx_train])
@@ -271,12 +287,13 @@ def train(epoch):
     f1=print_class_acc(output[idx_val], labels[idx_val], 0)
     f2=print_class_acc(output[idx_train], labels[idx_train], 0)
     print('Epoch: {:04d}'.format(epoch+1),
-          'loss_train: {:.4f}'.format(loss_train.data.item()),
+          # 'loss_train: {:.4f}'.format(loss_train.data.item()),
           'acc_train: {:.4f}'.format(acc_train.data.item()),
           'loss_val: {:.4f}'.format(loss_val.data.item()),
           'acc_val: {:.4f}'.format(acc_val.data.item()),
           'time: {:.4f}s'.format(time.time() - t))
-    metrics= {"loss_train": loss_train.data.item(),
+    metrics= {
+      # "loss_train": loss_train.data.item(),
     "loss_val": loss_val.data.item(),
     "acc_train": acc_train.data.item(),
     "acc_val":acc_val.data.item(),

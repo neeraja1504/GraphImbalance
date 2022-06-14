@@ -1,0 +1,30 @@
+{
+    "os": "Linux-5.4.188+-x86_64-with-Ubuntu-18.04-bionic",
+    "python": "3.7.13",
+    "heartbeatAt": "2022-06-14T06:45:30.165485",
+    "startedAt": "2022-06-14T06:45:29.151553",
+    "docker": null,
+    "gpu": "Tesla T4",
+    "gpu_count": 1,
+    "cpu_count": 2,
+    "cuda": null,
+    "args": [
+        "--seed=42",
+        "--epochs=300",
+        "--nb_heads=2",
+        "--patience=1000",
+        "--hidden=128"
+    ],
+    "state": "running",
+    "program": "train.py",
+    "codePath": "train.py",
+    "git": {
+        "remote": "https://neeraja1504:@github.com/neeraja1504/pyGAT.git",
+        "commit": "08d1fd6202f71e152f476800b7f1dc1d27f86a8e"
+    },
+    "email": "kirtane.neeraja@gmail.com",
+    "root": "/content/GraphImbalance",
+    "host": "7ffab4386828",
+    "username": "root",
+    "executable": "/usr/bin/python3"
+}
