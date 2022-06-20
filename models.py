@@ -18,6 +18,10 @@ class GAT(nn.Module):
 
     def forward(self, x, adj):
         x = F.dropout(x, self.dropout, training=self.training)
+        # att0=self.attentions[0](x,adj)
+        # att1=self.attentions[1](x,adj)
+        # x=torch.cat([att0,att1],dim=1)
+
         x = torch.cat([att(x, adj) for att in self.attentions], dim=1)
         x = F.dropout(x, self.dropout, training=self.training)
         x = F.elu(self.out_att(x, adj))

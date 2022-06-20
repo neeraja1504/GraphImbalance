@@ -63,7 +63,7 @@ else:
   device='cpu'    
 
 #Loading the dataset
-dataset = CiteseerGraphDataset()
+dataset = CoraGraphDataset()
 graph = dataset[0]   
 graph = dgl.add_self_loop(graph)
 print(graph)
@@ -97,81 +97,85 @@ print("Train_mask",train_mask)
 # idx_val = torch.LongTensor(idx_val)
 # idx_test = torch.LongTensor(idx_test)
 
-# c_train_num = []
-# class_sample_num=20
-# for i in range(labels.max().item() + 1):
-#     if i==0 or i==5: #only imbalance the last classes
-#         c_train_num.append(int(class_sample_num*0.5))
+c_train_num = []
+class_sample_num=20
+for i in range(labels.max().item() + 1):
+    if i==0 or i==5 or i==1 or i==6: #only imbalance the last classes
+        c_train_num.append(int(class_sample_num*0.5))
 
-#     else:
-#         c_train_num.append(class_sample_num)
-# print("Ctrain num",c_train_num)
-# def split_arti(labels, c_train_num):
-#     #labels: n-dim Longtensor, each element in [0,...,m-1].
-#     #cora: m=7
-#     num_classes = len(set(labels.tolist()))
-#     c_idxs = [] # class-wise index
-#     train_idx = []
-#     val_idx = []
-#     test_idx = []
-#     c_num_mat = np.zeros((num_classes,3)).astype(int)
-#     c_num_mat[:,1] = 25
-#     c_num_mat[:,2] = 55
+    else:
+        c_train_num.append(class_sample_num)
+print("Ctrain num",c_train_num)
+def split_arti(labels, c_train_num):
+    #labels: n-dim Longtensor, each element in [0,...,m-1].
+    #cora: m=7
+    num_classes = len(set(labels.tolist()))
+    c_idxs = [] # class-wise index
+    train_idx = []
+    val_idx = []
+    test_idx = []
+    c_num_mat = np.zeros((num_classes,3)).astype(int)
+    c_num_mat[:,1] = 25
+    c_num_mat[:,2] = 55
 
-#     for i in range(num_classes):
-#         c_idx = (labels==i).nonzero()[:,-1].tolist()
-#         print('{:d}-th class sample number: {:d}'.format(i,len(c_idx)))
-#         random.shuffle(c_idx)
-#         c_idxs.append(c_idx)
+    for i in range(num_classes):
+        c_idx = (labels==i).nonzero()[:,-1].tolist()
+        print('{:d}-th class sample number: {:d}'.format(i,len(c_idx)))
+        random.shuffle(c_idx)
+        c_idxs.append(c_idx)
 
-#         train_idx = train_idx + c_idx[:c_train_num[i]]
-#         c_num_mat[i,0] = c_train_num[i]
+        train_idx = train_idx + c_idx[:c_train_num[i]]
+        c_num_mat[i,0] = c_train_num[i]
 
        
-#         # val_idx = val_idx + c_idx[c_train_num[i]:c_train_num[i]+25]
-#         # test_idx = test_idx + c_idx[c_train_num[i]+25:c_train_num[i]+80]
-#         val_idx= range(200,500)
-#         test_idx=range(500,1500)
+        # val_idx = val_idx + c_idx[c_train_num[i]:c_train_num[i]+25]
+        # test_idx = test_idx + c_idx[c_train_num[i]+25:c_train_num[i]+80]
+        val_idx= range(200,500)
+        test_idx=range(500,1500)
 
-#     random.shuffle(train_idx)
+    random.shuffle(train_idx)
 
-#     #ipdb.set_trace()
+    #ipdb.set_trace()
 
-#     train_idx = torch.LongTensor(train_idx)
-#     val_idx = torch.LongTensor(val_idx)
-#     test_idx = torch.LongTensor(test_idx)
-#     #c_num_mat = torch.LongTensor(c_num_mat)
+    train_idx = torch.LongTensor(train_idx)
+    val_idx = torch.LongTensor(val_idx)
+    test_idx = torch.LongTensor(test_idx)
+    #c_num_mat = torch.LongTensor(c_num_mat)
 
 
-#     return train_idx, val_idx, test_idx, c_num_mat  
+    return train_idx, val_idx, test_idx, c_num_mat  
 
-# idx_train, idx_val, idx_test, c_num_mat=split_arti(labels,c_train_num)
-# # # Load data
-# adj, features, labels, idx_train, idx_val, idx_test = load_data()
-# n_features=features.shape[-1]
+idx_train, idx_val, idx_test, c_num_mat=split_arti(labels,c_train_num)
+# # Load data
+adj, features, labels, idx_train, idx_val, idx_test = load_data()
+n_features=features.shape[-1]
 
-cv = StratifiedShuffleSplit(n_splits=1, random_state=42,test_size=0.2)
-for train_idx, test_idx in cv.split(features.cpu(),labels.cpu()):
-  print(train_idx)
-  print(len(train_idx))
-  print(len(test_idx))
+# cv = StratifiedShuffleSplit(n_splits=1, random_state=42,test_size=0.2)
+# for train_idx, test_idx in cv.split(features.cpu(),labels.cpu()):
+#   print(train_idx)
+#   print(len(train_idx))
+#   print(len(test_idx))
 
-cv1= StratifiedShuffleSplit(n_splits=1, random_state=42,test_size=0.125)
-for trai_idx, val_idx in cv1.split(features[train_idx].cpu(),labels[train_idx].cpu()):
-  print(train_idx)
-  print(len(trai_idx))
-  print(len(val_idx))  
+# cv1= StratifiedShuffleSplit(n_splits=1, random_state=42,test_size=0.125)
+# for trai_idx, val_idx in cv1.split(features[train_idx].cpu(),labels[train_idx].cpu()):
+#   print(train_idx)
+#   print(len(trai_idx))
+#   print(len(val_idx))  
 
-idx_train, idx_val,idx_test= trai_idx, val_idx, test_idx 
-idx_train = torch.LongTensor(idx_train)
-idx_val = torch.LongTensor(idx_val)
-idx_test = torch.LongTensor(idx_test) 
+# idx_train, idx_val,idx_test= trai_idx, val_idx, test_idx 
+# idx_train = torch.LongTensor(idx_train)
+# idx_val = torch.LongTensor(idx_val)
+# idx_test = torch.LongTensor(idx_test) 
 
 majority=[]
 minority=[]
 for i in range(len(idx_train)):
   if(labels[idx_train[i]]==0):
     minority.append(idx_train[i])
+  if(labels[idx_train[i]]==1):
+    minority.append(idx_train[i])
+  if(labels[idx_train[i]]==6):
+    minority.append(idx_train[i])    
     
   if(labels[idx_train[i]]==5):
     minority.append(idx_train[i])
@@ -184,6 +188,7 @@ print(len(idx_train))
 print(len(idx_val))
 print(len(idx_test))
 print(minority)
+relist=[]
 # Model and optimizer
 if args.sparse:
     model = SpGAT(nfeat=n_features, 
@@ -250,15 +255,24 @@ def train(epoch):
     # print(reg)
     # print(model.attentions[1].weight[minority].shape)
     # reg=0
-    # for i in minority:
-    #   kl_loss = nn.KLDivLoss(reduction="batchmean")
-    #   input = F.log_softmax(model.attentions[1].weight[i],dim=-1)
-    #   target = adj[i]
-    #   sub = kl_loss(input, target)
-    #   reg=reg+sub
-    #   reg=reg/len(minority)
+    reg=0
+    # print("out_att",model.out_att.weight.shape)
+    for i in minority:
+      kl_loss = nn.KLDivLoss(reduction="batchmean")
+      input = F.log_softmax((model.attentions[1].weight[i]),dim=-1)
+      print(input)
     
+      target =adj[i]
+      sub = kl_loss(input, target)
+      reg=reg+sub
+      reg=reg/len(minority)
+    print("reg is",reg)
     
+  
+    relist.append(reg)
+
+
+
 
     
     
@@ -286,7 +300,7 @@ def train(epoch):
     # loss_train= ce_loss + (0.5)*(1-pt)
     # loss_train=loss_train.mean()
 
-    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight) 
+    loss_train = F.cross_entropy(output[idx_train], labels[idx_train],weight=weight) + 0.5*reg
     # print("Reg is",reg)
     # print("Train accuracy is",F.cross_entropy(output[idx_train], labels[idx_train],weight=weight))
     acc_train = accuracy(output[idx_train], labels[idx_train])
@@ -393,27 +407,28 @@ labell=[]
 #   list2=[]
 #   list3=[]
 #   # print("Node id and label",i,labels[i])
-#   for j in range(3327):
-#     if(model.attentions[1].weight[i][j]>0):
+#   for j in range(2708):
+#     if(model.attentions[0].weight[i][j]>0):
 #       list1.append(j)
-#       list2.append((model.attentions[1].weight[i][j]))
-#       list3.append((labels[j]))  
+#       list2.append((model.attentions[0].weight[i][j]).item())
+#       list3.append((labels[j]).item())  
 #   # print(list1)
 #   # print(list3)
 #   # print(list2) 
 #       mainlist.append(list2)
 #       labell.append(list3)
 
-# # with open("/content/drive/MyDrive/Neeraja/lambda=0.5.txt", 'w') as output:
-# #        for row in mainlist:
-# #           output.write(str(row) + '\n')
+# with open("/content/drive/MyDrive/Neeraja/noreg.txt", 'w') as output:
+#        for row in mainlist:
+#           output.write(str(row) + '\n')
 
 
 # with open("/content/drive/MyDrive/Neeraja/label.txt", 'w') as output:
 #        for row in labell:
 #           output.write(str(row) + '\n') 
 
-
+for i in relist:
+  print(i.item())
 
 
 

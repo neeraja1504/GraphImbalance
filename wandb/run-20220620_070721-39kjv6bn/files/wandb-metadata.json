@@ -1,0 +1,30 @@
+{
+    "os": "Linux-5.4.188+-x86_64-with-Ubuntu-18.04-bionic",
+    "python": "3.7.13",
+    "heartbeatAt": "2022-06-20T07:07:22.778238",
+    "startedAt": "2022-06-20T07:07:21.599202",
+    "docker": null,
+    "gpu": "Tesla T4",
+    "gpu_count": 1,
+    "cpu_count": 2,
+    "cuda": null,
+    "args": [
+        "--seed=42",
+        "--epochs=300",
+        "--nb_heads=2",
+        "--patience=1000",
+        "--hidden=128"
+    ],
+    "state": "running",
+    "program": "train.py",
+    "codePath": "train.py",
+    "git": {
+        "remote": "https://github.com/neeraja1504/GraphImbalance.git",
+        "commit": "6eb0044da2e29768a34f14c31ba76d627d91a981"
+    },
+    "email": "kirtane.neeraja@gmail.com",
+    "root": "/content/GraphImbalance",
+    "host": "fd96cde9f4e2",
+    "username": "root",
+    "executable": "/usr/bin/python3"
+}
